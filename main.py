@@ -5,6 +5,7 @@ import pandas as pd
 import plotly.express as px
 from data_gen import DataGen
 from modelle.knn import TimeSeriesNN
+from modelle.svm import SVM
 from modelle import section
 
 
@@ -76,7 +77,10 @@ def main():
     # fig.update_layout(legend_title_text="Kategorie")
 
     # Modell-Sektionen
-    sections: list[section.Section] = [TimeSeriesNN(app=app, data=df)]
+    sections: list[section.Section] = [
+        TimeSeriesNN(app=app, data=df),
+        SVM(app=app, data=df),
+    ]
 
     # Layout der App
     app.layout = html.Div(
