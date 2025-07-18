@@ -6,18 +6,39 @@ import plotly.express as px
 from data_gen import DataGen
 from modelle.knn import TimeSeriesNN
 from modelle.svm import SVM
+from modelle.decision_tree import DecisionTree
 from modelle import section
 
 
 def main():
     # Simuliere Daten
     sim = DataGen(hs=2.13)
-    df = sim.generate_dataset(base_theta_deg=48.43, n=500)
+    df = sim.generate_dataset(n=500)
+    df_noisy = sim.generate_dataset(n=500, with_noise=True)
     df.to_csv("wurfbahnen_labeled.csv", index=False)
+    df_noisy.to_csv("wurfbahnen_labeled_noisy.csv", index=False)
 
     # Erstelle Dash-App
     app = dash.Dash(__name__)
 
+    df2 = df.copy()
+
+    df2["trajectory_id"] = df2.groupby(["theta", "v0"]).ngroup()
+
+    # Wähle die ersten 3 Verläufe
+    erste_drei_ids = df2["trajectory_id"].unique()[:3]
+    df_drei = df2[df2["trajectory_id"].isin(erste_drei_ids)]
+
+    # Linienplot
+    fig = px.line(
+        df_drei,
+        x="x",
+        y="y",
+        color="trajectory_id",
+        markers=True,
+        title="Erste drei Wurfverläufe (verbundene Zeitreihen)",
+        labels={"x": "x [m]", "y": "y [m]", "trajectory_id": "Verlauf-ID"},
+    )
     # # Statistik
     # winkel_df = df.copy()
     # winkel_df["theta_deg"] = df["theta"] * 180 / 3.14159
@@ -80,6 +101,10 @@ def main():
     sections: list[section.Section] = [
         TimeSeriesNN(app=app, data=df),
         SVM(app=app, data=df),
+        DecisionTree(app=app, data=df),
+        TimeSeriesNN(app=app, data=df_noisy),
+        SVM(app=app, data=df_noisy),
+        DecisionTree(app=app, data=df_noisy),
     ]
 
     # Layout der App
@@ -87,6 +112,7 @@ def main():
         [
             # html.H1("Wurf-Simulation & Klassifikation"),
             # dcc.Graph(figure=fig),
+            dcc.Graph(figure=fig),
             *[s.get_html() for s in sections],
         ]
     )

@@ -1,6 +1,7 @@
 # data_gen.py
 import numpy as np
 import pandas as pd
+import uuid
 
 
 class DataGen:
@@ -29,7 +30,11 @@ class DataGen:
         y = vy * t - 0.5 * g * t**2 + self.wurf_hoehe
         return x, y
 
-    def generate_dataset(self, base_theta_deg=48.43, n=100):
+    def generate_dataset(self, base_theta_deg=48.43, n=100, with_noise=False):
+        """
+        Generiert einen Datensatz aus drei Klassen von Würfen.
+        Optional kann Rauschen hinzugefügt werden.
+        """
         base_theta = np.deg2rad(base_theta_deg)
         base_v0 = self.wurfgeschwindigkeit(base_theta)
 
@@ -46,19 +51,75 @@ class DataGen:
             )
 
         df = pd.DataFrame(all_data)
+
+        if with_noise:
+            df = self.full_noise_pipeline(df)
+
         return df
 
     def _generate_wurf(self, theta_base, v0_base, variation_range, label, n):
+        """
+        Erzeugt n Würfe mit zufälligen Variationen um theta_base und v0_base.
+        """
         data = []
         g = self.params["g"]
         for _ in range(n):
+            # Variiere die Startparameter leicht um die Basiseinstellungen
             theta = theta_base + np.random.uniform(*variation_range["theta"])
             v0 = v0_base + np.random.uniform(*variation_range["v0"])
+
+            # Flugzeit und Zeitstempel berechnen
             T = 2 * v0 * np.sin(theta) / g
             t_vals = np.linspace(0, T, 50)
+
+            # Wurftrajektorie berechnen
             x, y = self.wurftrajektorien(theta, v0, t_vals)
+
+            # Eine eindeutige ID für diesen Wurf erzeugen
+            wurf_id = str(uuid.uuid4())
+
+            # Alle 50 Zeitpunkte als Datenpunkte abspeichern
             for xi, yi in zip(x, y):
                 data.append(
-                    {"x": xi, "y": yi, "theta": theta, "v0": v0, "label": label}
+                    {
+                        "x": xi,
+                        "y": yi,
+                        "theta": theta,
+                        "v0": v0,
+                        "label": label,
+                        "wurf_id": wurf_id,
+                    }
                 )
+
         return data
+
+    def add_position_noise(self, df, std_x=0.01, std_y=0.01):
+        """Fügt Rauschen zu den x- und y-Koordinaten hinzu."""
+        df_noisy = df.copy()
+        df_noisy["x"] += np.random.normal(0, std_x, size=len(df))
+        df_noisy["y"] += np.random.normal(0, std_y, size=len(df))
+        return df_noisy
+
+    def add_initial_param_noise(self, df, std_theta=0.005, std_v0=0.05):
+        """Fügt Rauschen zu theta und v0 hinzu."""
+        df_noisy = df.copy()
+        df_noisy["theta"] += np.random.normal(0, std_theta, size=len(df))
+        df_noisy["v0"] += np.random.normal(0, std_v0, size=len(df))
+        return df_noisy
+
+    def dropout_features(self, df, dropout_rate=0.01):
+        """Setzt zufällig Werte in x und y auf NaN (Dropout-Simulation)."""
+        df_noisy = df.copy()
+        mask = np.random.rand(*df[["x", "y"]].shape) < dropout_rate
+        df_noisy[["x", "y"]] = df[["x", "y"]].mask(mask)
+        return df_noisy
+
+    def full_noise_pipeline(self, df):
+        """
+        Führt mehrere Rauschmethoden nacheinander aus.
+        """
+        df = self.add_position_noise(df, std_x=0.01, std_y=0.01)
+        df = self.add_initial_param_noise(df, std_theta=0.005, std_v0=0.05)
+        # Optional:
+        # df = self.dropout_features(df, dropout_rate=0.005)
+        return df

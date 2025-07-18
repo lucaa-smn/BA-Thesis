@@ -38,14 +38,21 @@ class SVM(Section):
         return self.div
 
     def prepare_sequences(self):
-        grouped = self.data.groupby(["theta", "v0", "label"])
+        if "wurf_id" not in self.data.columns:
+            raise ValueError(
+                "Data must contain 'wurf_id' column for sequence grouping."
+            )
+
+        grouped = self.data.groupby("wurf_id")
         sequences, labels = [], []
+
         for _, group in grouped:
             group_sorted = group.sort_values("x")
             sequence = group_sorted[["x", "y"]].values
             if sequence.shape[0] == self.sequence_length:
                 sequences.append(sequence.flatten())  # 2D -> 1D für SVM
                 labels.append(group_sorted["label"].iloc[0])
+
         return np.array(sequences), np.array(labels)
 
     def train_and_evaluate(self):

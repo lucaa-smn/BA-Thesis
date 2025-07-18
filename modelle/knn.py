@@ -109,7 +109,10 @@ class TimeSeriesNN(Section):
         self.y_pred = self.predict(self.X_test)
 
     def prepare_sequences(self):
-        grouped = self.data.groupby(["theta", "v0", "label"])
+        if "wurf_id" not in self.data.columns:
+            raise ValueError("Data must contain 'wurf_id' column for sequence grouping.")
+
+        grouped = self.data.groupby("wurf_id")
         sequences, labels = [], []
         for _, group in grouped:
             group_sorted = group.sort_values("x")
