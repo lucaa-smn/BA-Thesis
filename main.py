@@ -7,6 +7,7 @@ from data_gen import DataGen
 from modelle.knn import TimeSeriesNN
 from modelle.svm import SVM
 from modelle.decision_tree import DecisionTree
+from modelle.random_forest import RandomForest
 from modelle import section
 
 
@@ -98,22 +99,29 @@ def main():
     # fig.update_layout(legend_title_text="Kategorie")
 
     # Modell-Sektionen
-    sections: list[section.Section] = [
+    sections1: list[section.Section] = [
         TimeSeriesNN(app=app, data=df),
         SVM(app=app, data=df),
         DecisionTree(app=app, data=df),
+        RandomForest(app=app, data=df, target_column="label", task="classification"),
+        RandomForest(app=app, data=df, target_column="label", task="regression"),
+    ]
+
+    sections2: list[section.Section] = [
         TimeSeriesNN(app=app, data=df_noisy),
         SVM(app=app, data=df_noisy),
         DecisionTree(app=app, data=df_noisy),
     ]
-
     # Layout der App
     app.layout = html.Div(
         [
             # html.H1("Wurf-Simulation & Klassifikation"),
             # dcc.Graph(figure=fig),
             dcc.Graph(figure=fig),
-            *[s.get_html() for s in sections],
+            html.H2("Modelle mit normalen Daten"),
+            *[s.get_html() for s in sections1],
+            html.H2("Modelle mit verrauschten Daten"),
+            *[s.get_html() for s in sections2],
         ]
     )
 

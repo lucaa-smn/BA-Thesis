@@ -118,8 +118,8 @@ class DataGen:
         """
         Führt mehrere Rauschmethoden nacheinander aus.
         """
-        df = self.add_position_noise(df, std_x=0.01, std_y=0.01)
-        df = self.add_initial_param_noise(df, std_theta=0.005, std_v0=0.05)
+        df = self.add_position_noise(df, std_x=0.1, std_y=0.1)
+        df = self.add_initial_param_noise(df, std_theta=0.1, std_v0=0.1)
         # Optional:
         # df = self.dropout_features(df, dropout_rate=0.005)
         return df
