@@ -1,6 +1,6 @@
 # main.py
 import dash
-from dash import html, dcc
+from dash import html, dcc, Input, Output
 import pandas as pd
 import plotly.express as px
 from data_gen import DataGen
@@ -11,26 +11,13 @@ from modelle.random_forest import RandomForest
 from modelle import section
 
 
-def main():
-    # Simuliere Daten
-    sim = DataGen(hs=2.13)
-    df = sim.generate_dataset(n=500)
-    df_noisy = sim.generate_dataset(n=500, with_noise=True)
-    df.to_csv("wurfbahnen_labeled.csv", index=False)
-    df_noisy.to_csv("wurfbahnen_labeled_noisy.csv", index=False)
-
-    # Erstelle Dash-App
-    app = dash.Dash(__name__)
-
+def create_plot(df, sim):
     df2 = df.copy()
-
     df2["trajectory_id"] = df2.groupby(["theta", "v0"]).ngroup()
 
-    # Wähle die ersten 3 Verläufe
     erste_drei_ids = df2["trajectory_id"].unique()[:3]
     df_drei = df2[df2["trajectory_id"].isin(erste_drei_ids)]
 
-    # Linienplot
     fig = px.line(
         df_drei,
         x="x",
@@ -40,92 +27,136 @@ def main():
         title="Erste drei Wurfverläufe (verbundene Zeitreihen)",
         labels={"x": "x [m]", "y": "y [m]", "trajectory_id": "Verlauf-ID"},
     )
-    # # Statistik
-    # winkel_df = df.copy()
-    # winkel_df["theta_deg"] = df["theta"] * 180 / 3.14159
+    return fig
 
-    # winkel_bereiche = (
-    #     winkel_df.groupby("label")["theta_deg"].agg(["min", "max"]).round(2)
-    # )
-    # geschw_bereiche = df.groupby("label")["v0"].agg(["min", "max"]).round(2)
 
-    # bereich_text = "".join(
-    #     f"{label}: Winkel {winkel_bereiche.loc[label, 'min']}°–{winkel_bereiche.loc[label, 'max']}°, "
-    #     f"v0 {geschw_bereiche.loc[label, 'min']}-{geschw_bereiche.loc[label, 'max']} m/s<br>"
-    #     for label in df["label"].unique()
-    # )
+def main():
+    # Daten erzeugen
+    sim = DataGen(hs=2.13)
+    df = sim.generate_dataset(n=500)
+    df_noisy = sim.generate_dataset(n=500, with_noise=True)
 
-    # # Plot erstellen
-    # df["line_group"] = df.groupby(["theta", "v0"]).ngroup()
-    # fig = px.line(
-    #     df,
-    #     x="x",
-    #     y="y",
-    #     color="label",
-    #     line_group="line_group",
-    #     title="Simulierte Wurfparabeln nach Kategorie",
-    #     labels={"x": "x [m]", "y": "y [m]"},
-    # )
+    # Dash-App erstellen
+    app = dash.Dash(__name__, suppress_callback_exceptions=True)
 
-    # # Korb hinzufügen
-    # korb_x0 = sim.params["l"] - sim.params["Rr"]
-    # korb_x1 = sim.params["l"] + sim.params["Rr"]
-    # korb_y = sim.params["hKorb"]
-    # fig.add_shape(
-    #     type="line",
-    #     x0=korb_x0,
-    #     x1=korb_x1,
-    #     y0=korb_y,
-    #     y1=korb_y,
-    #     line=dict(color="black", width=6),
-    #     name="Korb",
-    # )
+    # Modelle vorbereiten
+    models_normal = {
+        "Neural Network": TimeSeriesNN(app=app, data=df),
+        "SVM": SVM(app=app, data=df),
+        "Decision Tree": DecisionTree(app=app, data=df),
+        "Random Forest (Classif.)": RandomForest(
+            app=app, data=df, target_column="label", task="classification"
+        ),
+        "Random Forest (Regr.)": RandomForest(
+            app=app, data=df, target_column="label", task="regression"
+        ),
+    }
 
-    # # Annotation
-    # fig.add_annotation(
-    #     x=0.01,
-    #     y=0.99,
-    #     xref="paper",
-    #     yref="paper",
-    #     text=f"<b>Winkel- und Geschwindigkeitsbereiche:</b><br>{bereich_text}",
-    #     showarrow=False,
-    #     align="left",
-    #     bordercolor="black",
-    #     borderwidth=1,
-    #     bgcolor="white",
-    #     opacity=0.8,
-    # )
+    models_noisy = {
+        "Neural Network (noisy)": TimeSeriesNN(app=app, data=df_noisy),
+        "SVM (noisy)": SVM(app=app, data=df_noisy),
+        "Decision Tree (noisy)": DecisionTree(app=app, data=df_noisy),
+    }
 
-    # fig.update_layout(legend_title_text="Kategorie")
+    # Navbar-Links generieren
+    def navbar():
+        return html.Div(
+            [
+                html.H2(
+                    "Modelle",
+                    className="text-center",
+                    style={"margin-bottom": "15px", "color": "#343a40"},
+                ),
+                html.Hr(),
+                html.Div(
+                    [
+                        dcc.Link(
+                            name,
+                            href=f"/{name.replace(' ', '_')}",
+                            style={
+                                "display": "block",
+                                "padding": "10px 15px",
+                                "margin": "5px 0",
+                                "border-radius": "8px",
+                                "text-decoration": "none",
+                                "color": "#212529",
+                                "font-weight": "500",
+                            },
+                            className="nav-link",
+                        )
+                        for name in models_normal.keys()
+                    ],
+                    style={"margin-bottom": "30px"},
+                ),
+                html.Hr(),
+                html.H4(
+                    "Noisy Models",
+                    className="text-center",
+                    style={"margin-bottom": "15px", "color": "#495057"},
+                ),
+                html.Div(
+                    [
+                        dcc.Link(
+                            name,
+                            href=f"/{name.replace(' ', '_')}",
+                            style={
+                                "display": "block",
+                                "padding": "10px 15px",
+                                "margin": "5px 0",
+                                "border-radius": "8px",
+                                "text-decoration": "none",
+                                "color": "#495057",
+                                "font-weight": "500",
+                            },
+                            className="nav-link",
+                        )
+                        for name in models_noisy.keys()
+                    ],
+                ),
+            ],
+            style={
+                "padding": "20px",
+                "background-color": "#ffffff",
+                "width": "260px",
+                "position": "fixed",
+                "height": "100%",
+                "overflow-y": "auto",
+                "border-right": "1px solid #dee2e6",
+                "box-shadow": "2px 0 8px rgba(0,0,0,0.05)",
+            },
+            className="shadow-sm",
+        )
 
-    # Modell-Sektionen
-    sections1: list[section.Section] = [
-        TimeSeriesNN(app=app, data=df),
-        SVM(app=app, data=df),
-        DecisionTree(app=app, data=df),
-        RandomForest(app=app, data=df, target_column="label", task="classification"),
-        RandomForest(app=app, data=df, target_column="label", task="regression"),
-    ]
-
-    sections2: list[section.Section] = [
-        TimeSeriesNN(app=app, data=df_noisy),
-        SVM(app=app, data=df_noisy),
-        DecisionTree(app=app, data=df_noisy),
-    ]
-    # Layout der App
+    # Layout mit Navbar + Content
     app.layout = html.Div(
         [
-            # html.H1("Wurf-Simulation & Klassifikation"),
-            # dcc.Graph(figure=fig),
-            dcc.Graph(figure=fig),
-            html.H2("Modelle mit normalen Daten"),
-            *[s.get_html() for s in sections1],
-            html.H2("Modelle mit verrauschten Daten"),
-            *[s.get_html() for s in sections2],
+            dcc.Location(id="url"),
+            navbar(),
+            html.Div(
+                id="page-content", style={"margin-left": "22%", "padding": "20px"}
+            ),
         ]
     )
 
-    # Server starten
+    # Callback zum Seitenwechsel
+    @app.callback(Output("page-content", "children"), Input("url", "pathname"))
+    def display_page(pathname):
+        if pathname is None or pathname == "/":
+            return html.Div(
+                [
+                    html.H1("Übersicht"),
+                    dcc.Graph(figure=create_plot(df, sim)),
+                    html.P("Wähle ein Modell links aus der Navigation."),
+                ]
+            )
+        # Name aus URL extrahieren
+        model_name = pathname.strip("/").replace("_", " ")
+        if model_name in models_normal:
+            return models_normal[model_name].get_html()
+        if model_name in models_noisy:
+            return models_noisy[model_name].get_html()
+        return html.H1("Seite nicht gefunden")
+
     app.run_server(debug=True)
 
 

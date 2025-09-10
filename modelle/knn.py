@@ -1,20 +1,20 @@
-# modelle/time_series_nn.py
-
 import dash
 import pandas as pd
 import dash.html as html
 import dash.dcc as dcc
 import plotly.express as px
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+from sklearn.metrics import confusion_matrix
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import io
 import base64
-import uuid
 from modelle.section import Section
 
 
@@ -110,7 +110,9 @@ class TimeSeriesNN(Section):
 
     def prepare_sequences(self):
         if "wurf_id" not in self.data.columns:
-            raise ValueError("Data must contain 'wurf_id' column for sequence grouping.")
+            raise ValueError(
+                "Data must contain 'wurf_id' column for sequence grouping."
+            )
 
         grouped = self.data.groupby("wurf_id")
         sequences, labels = [], []

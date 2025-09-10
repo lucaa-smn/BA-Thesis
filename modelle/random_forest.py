@@ -50,7 +50,6 @@ class RandomForest(Section):
 
         self.train_model()
 
-        # Build HTML output depending on task
         if self.task == "regression":
             self.div = html.Div(
                 [
@@ -132,7 +131,6 @@ class RandomForest(Section):
         ax.set_xlabel("Predicted")
         ax.set_ylabel("True")
 
-        # Add numbers in cells
         for i in range(cm.shape[0]):
             for j in range(cm.shape[1]):
                 ax.text(j, i, cm[i, j], ha="center", va="center", color="black")

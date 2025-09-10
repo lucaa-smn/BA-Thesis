@@ -31,10 +31,7 @@ class DataGen:
         return x, y
 
     def generate_dataset(self, base_theta_deg=48.43, n=100, with_noise=False):
-        """
-        Generiert einen Datensatz aus drei Klassen von Würfen.
-        Optional kann Rauschen hinzugefügt werden.
-        """
+
         base_theta = np.deg2rad(base_theta_deg)
         base_v0 = self.wurfgeschwindigkeit(base_theta)
 
@@ -58,9 +55,7 @@ class DataGen:
         return df
 
     def _generate_wurf(self, theta_base, v0_base, variation_range, label, n):
-        """
-        Erzeugt n Würfe mit zufälligen Variationen um theta_base und v0_base.
-        """
+
         data = []
         g = self.params["g"]
         for _ in range(n):
@@ -94,32 +89,26 @@ class DataGen:
         return data
 
     def add_position_noise(self, df, std_x=0.01, std_y=0.01):
-        """Fügt Rauschen zu den x- und y-Koordinaten hinzu."""
         df_noisy = df.copy()
         df_noisy["x"] += np.random.normal(0, std_x, size=len(df))
         df_noisy["y"] += np.random.normal(0, std_y, size=len(df))
         return df_noisy
 
     def add_initial_param_noise(self, df, std_theta=0.005, std_v0=0.05):
-        """Fügt Rauschen zu theta und v0 hinzu."""
         df_noisy = df.copy()
         df_noisy["theta"] += np.random.normal(0, std_theta, size=len(df))
         df_noisy["v0"] += np.random.normal(0, std_v0, size=len(df))
         return df_noisy
 
     def dropout_features(self, df, dropout_rate=0.01):
-        """Setzt zufällig Werte in x und y auf NaN (Dropout-Simulation)."""
         df_noisy = df.copy()
         mask = np.random.rand(*df[["x", "y"]].shape) < dropout_rate
         df_noisy[["x", "y"]] = df[["x", "y"]].mask(mask)
         return df_noisy
 
     def full_noise_pipeline(self, df):
-        """
-        Führt mehrere Rauschmethoden nacheinander aus.
-        """
         df = self.add_position_noise(df, std_x=0.1, std_y=0.1)
-        df = self.add_initial_param_noise(df, std_theta=0.1, std_v0=0.1)
+        df = self.add_initial_param_noise(df, std_theta=0.5, std_v0=0.5)
         # Optional:
         # df = self.dropout_features(df, dropout_rate=0.005)
         return df
