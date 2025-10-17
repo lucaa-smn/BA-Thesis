@@ -3,7 +3,7 @@ import dash
 from dash import html, dcc, Input, Output
 import pandas as pd
 import plotly.express as px
-from data_gen import DataGen
+from data_gen import DataGen    
 from modelle.knn import TimeSeriesNN
 from modelle.svm import SVM
 from modelle.decision_tree import DecisionTree
