@@ -3,11 +3,12 @@ import dash
 from dash import html, dcc, Input, Output
 import pandas as pd
 import plotly.express as px
-from data_gen import DataGen    
+from data_gen import DataGen
 from modelle.knn import TimeSeriesNN
 from modelle.svm import SVM
 from modelle.decision_tree import DecisionTree
 from modelle.random_forest import RandomForest
+from modelle.pinn import PINN
 from modelle import section
 
 
@@ -50,12 +51,15 @@ def main():
         "Random Forest (Regr.)": RandomForest(
             app=app, data=df, target_column="label", task="regression"
         ),
+        "PINN": PINN(app=app, data=df),
+        #  "PINN": FreeThrowPINN(app=app, data=df),
     }
 
     models_noisy = {
         "Neural Network (noisy)": TimeSeriesNN(app=app, data=df_noisy),
         "SVM (noisy)": SVM(app=app, data=df_noisy),
         "Decision Tree (noisy)": DecisionTree(app=app, data=df_noisy),
+        #  "PINN (noisy)": FreeThrowPINN(app=app, data=df_noisy),
     }
 
     # Navbar-Links generieren
