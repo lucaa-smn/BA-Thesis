@@ -1,0 +1,1 @@
+1. df_to_tensors rekonstruiert t aus x/vx; das ist ok, aber bei starkem Rauschen in x kann das die Physik-Residuals beeinflussen.
