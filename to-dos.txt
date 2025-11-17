@@ -1,1 +1,10 @@
 1. df_to_tensors rekonstruiert t aus x/vx; das ist ok, aber bei starkem Rauschen in x kann das die Physik-Residuals beeinflussen.
+
+LSTM und PINN ohne v0 und theta als Input ins Modell
+Klassifizierer an die Netze hängen
+Dash Anwendung
+    Random Trajektorie erzeugen lassen
+    analysieren lassen vom PINN
+    Vorschläge für besseren Winkel und geschwindigkeit machen 
+
+Vortrag
