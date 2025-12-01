@@ -7,4 +7,14 @@ Dash Anwendung
     analysieren lassen vom PINN
     Vorschläge für besseren Winkel und geschwindigkeit machen 
 
+Mitte Februar finale arbeit abgeben
+
 Vortrag
+auf 16 zu 9 ändern
+Folien auf Englisch
+Folien:
+6. 
+einbringen: 
+-synthetische Daten sollen messdaten ersätzen 
+-Vergleich--> physikalische Gesätzmäßigkeiten sind sehr gut bekannt--> sollten mit ins Modell einfließen
+ 
