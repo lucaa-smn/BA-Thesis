@@ -1,3 +1,4 @@
 .venv
 __pycache__
 free_throw_clean_dataset.csv
+old_models
