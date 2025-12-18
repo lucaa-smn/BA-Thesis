@@ -20,3 +20,27 @@ einbringen:
  
 Quellen direkt unter den Bildern auf der Folie
 Bessere Grafiken für RNN Architektur, RNN unfold, LSTM unfold, NN Architektur
+Encoder Decoder mit in den Vortrag
+
+Physics informed learning for 2D Basketball Free-Throw Trajectory Prediction -- Titel nochmal anpassen
+
+Motivation and Problem Definition
+Objectives and Research Questions
+Fundamentals
+    Haußer und Luchko Model
+    Encoder Decoder
+    LSTM
+    PINN
+Related Work
+Conception and Implementation 
+Results and Evaluation
+Reflection and Outlook
+
+
+Beim Vergleich von Plots die gleichen Indizes nehmen und gleiche Achsenskalierung
+Gleiche Beschriftung
+
+Reflexion:
+was lief schlecht:
+LSTM lernt schlecht Parameter z.b. 
+Trainings herangehensweise

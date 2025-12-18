@@ -5,16 +5,20 @@ import uuid
 
 
 class DataGen:
+    """
+    Synthetic Free-Throw Generator (ballistic, no drag).
+    """
+
     def __init__(self, hs=2.13, l=4.115, hKorb=3.048, Rr=0.2286, Rb=0.1219, g=9.807):
         self.params = {
-            "l": l,
-            "hKorb": hKorb,
-            "Rr": Rr,
-            "Rb": Rb,
-            "g": g,
+            "l": float(l),
+            "hKorb": float(hKorb),
+            "Rr": float(Rr),
+            "Rb": float(Rb),
+            "g": float(g),
         }
-        self.hs = hs
-        self.wurf_hoehe = 1.25 * hs
+        self.hs = float(hs)
+        self.wurf_hoehe = 1.25 * self.hs  # release height
 
     def wurfgeschwindigkeit(self, theta):
         l = self.params["l"]
@@ -28,87 +32,168 @@ class DataGen:
         vy = v0 * np.sin(theta)
         x = vx * t
         y = vy * t - 0.5 * g * t**2 + self.wurf_hoehe
-        return x, y
+        return x, y, vx, vy
 
-    def generate_dataset(self, base_theta_deg=48.43, n=100, with_noise=False):
+    def _t_at_height_desc(self, theta, v0, y_target):
+        g = self.params["g"]
+        y0 = self.wurf_hoehe
 
+        vx = v0 * np.cos(theta)
+        vy = v0 * np.sin(theta)
+        if vx <= 0:
+            return None
+
+        a = 0.5 * g
+        b = -vy
+        c = y_target - y0
+
+        disc = b * b - 4 * a * c
+        if disc <= 0:
+            return None
+
+        sqrt_disc = np.sqrt(disc)
+        t1 = (-b - sqrt_disc) / (2 * a)
+        t2 = (-b + sqrt_disc) / (2 * a)
+
+        t_desc = max(t1, t2)
+        if t_desc <= 0:
+            return None
+        return float(t_desc)
+
+    def label_from_trajectory(self, theta, v0, margin=0.0):
+        l = self.params["l"]
+        h = self.params["hKorb"]
+        Rr = self.params["Rr"]
+        Rb = self.params["Rb"]
+
+        vx = v0 * np.cos(theta)
+        r_clear = max(0.0, (Rr - Rb) + margin)
+
+        t_desc = self._t_at_height_desc(theta, v0, h)
+        if t_desc is None or vx <= 0:
+            return 0
+
+        x_at_hoop_height = vx * t_desc
+
+        if abs(x_at_hoop_height - l) <= r_clear:
+            return 1
+        elif x_at_hoop_height < l - r_clear:
+            return 0
+        else:
+            return 2
+
+    def generate_dataset_balanced(
+        self,
+        base_theta_deg=48.43,
+        n_per_class=50,
+        n_points=50,
+        with_noise=False,
+        noise_std=0.01,
+        dtheta_range=(-0.20, 0.20),
+        dv0_range=(-0.8, 0.8),
+        margin=0.0,
+        max_resample=5000,
+        force_exact_endpoint=True,
+    ):
+        """
+        Balanced dataset: exactly n_per_class throws for each label {0,1,2}.
+        Returns same dataframe format as generate_dataset.
+        """
         base_theta = np.deg2rad(base_theta_deg)
         base_v0 = self.wurfgeschwindigkeit(base_theta)
 
-        categories = {
-            0: {"theta": (-0.15, -0.05), "v0": (-0.5, -0.2)},
-            1: {"theta": (-0.03, 0.03), "v0": (-0.1, 0.1)},
-            2: {"theta": (0.06, 0.15), "v0": (0.3, 0.5)},
-        }
+        h = self.params["hKorb"]
 
-        all_data = []
-        for label, variation in categories.items():
-            all_data.extend(
-                self._generate_wurf(base_theta, base_v0, variation, label, n)
-            )
+        target_counts = {0: n_per_class, 1: n_per_class, 2: n_per_class}
+        counts = {0: 0, 1: 0, 2: 0}
 
-        df = pd.DataFrame(all_data)
+        rows = []
+        wid = 0
 
-        if with_noise:
-            df = self.full_noise_pipeline(df)
+        # generate in rounds: 0,1,2,0,1,2,... until all filled
+        desired_labels = [0, 1, 2]
 
-        return df
+        while any(counts[k] < target_counts[k] for k in counts):
+            for desired in desired_labels:
+                if counts[desired] >= target_counts[desired]:
+                    continue
 
-    def _generate_wurf(self, theta_base, v0_base, variation_range, label, n):
+                theta = v0 = T = None
 
-        data = []
-        g = self.params["g"]
-        for _ in range(n):
-            # Variiere die Startparameter leicht um die Basiseinstellungen
-            theta = theta_base + np.random.uniform(*variation_range["theta"])
-            v0 = v0_base + np.random.uniform(*variation_range["v0"])
+                for _ in range(max_resample):
+                    dth = np.random.uniform(*dtheta_range)
+                    dv0 = np.random.uniform(*dv0_range)
+                    theta_try = base_theta + dth
+                    v0_try = base_v0 + dv0
 
-            # Flugzeit und Zeitstempel berechnen
-            T = 2 * v0 * np.sin(theta) / g
-            t_vals = np.linspace(0, T, 50)
+                    t_desc = self._t_at_height_desc(theta_try, v0_try, h)
+                    if t_desc is None:
+                        continue
 
-            # Wurftrajektorie berechnen
-            x, y = self.wurftrajektorien(theta, v0, t_vals)
+                    label_try = self.label_from_trajectory(
+                        theta_try, v0_try, margin=margin
+                    )
+                    if label_try == desired:
+                        theta, v0, T = theta_try, v0_try, t_desc
+                        label = label_try
+                        break
 
-            # Eine eindeutige ID für diesen Wurf erzeugen
-            wurf_id = str(uuid.uuid4())
+                if T is None:
+                    raise RuntimeError(
+                        f"Could not sample enough examples for class {desired} "
+                        f"within max_resample={max_resample}. "
+                        f"Try widening dtheta_range/dv0_range or increasing max_resample."
+                    )
 
-            # Alle 50 Zeitpunkte als Datenpunkte abspeichern
-            for xi, yi in zip(x, y):
-                data.append(
-                    {
-                        "x": xi,
-                        "y": yi,
-                        "theta": theta,
-                        "v0": v0,
-                        "label": label,
-                        "wurf_id": wurf_id,
-                    }
-                )
+                t_vals = np.linspace(0.0, T, n_points, dtype=np.float32)
+                x, y, vx, vy = self.wurftrajektorien(theta, v0, t_vals)
 
-        return data
+                x_clean = x.copy()
+                y_clean = y.copy()
 
-    def add_position_noise(self, df, std_x=0.01, std_y=0.01):
-        df_noisy = df.copy()
-        df_noisy["x"] += np.random.normal(0, std_x, size=len(df))
-        df_noisy["y"] += np.random.normal(0, std_y, size=len(df))
-        return df_noisy
+                if force_exact_endpoint:
+                    vx0 = v0 * np.cos(theta)
+                    x_clean[-1] = float(vx0 * T)
+                    y_clean[-1] = float(h)
 
-    def add_initial_param_noise(self, df, std_theta=0.005, std_v0=0.05):
-        df_noisy = df.copy()
-        df_noisy["theta"] += np.random.normal(0, std_theta, size=len(df))
-        df_noisy["v0"] += np.random.normal(0, std_v0, size=len(df))
-        return df_noisy
+                if with_noise:
+                    x_noisy = x_clean + np.random.normal(
+                        0.0, noise_std, size=x_clean.shape
+                    )
+                    y_noisy = y_clean + np.random.normal(
+                        0.0, noise_std, size=y_clean.shape
+                    )
+                    if force_exact_endpoint:
+                        x_noisy[-1] = x_clean[-1]
+                        y_noisy[-1] = y_clean[-1]
+                else:
+                    x_noisy = x_clean.copy()
+                    y_noisy = y_clean.copy()
 
-    def dropout_features(self, df, dropout_rate=0.01):
-        df_noisy = df.copy()
-        mask = np.random.rand(*df[["x", "y"]].shape) < dropout_rate
-        df_noisy[["x", "y"]] = df[["x", "y"]].mask(mask)
-        return df_noisy
+                x_sel = x_noisy if with_noise else x_clean
+                y_sel = y_noisy if with_noise else y_clean
 
-    def full_noise_pipeline(self, df):
-        df = self.add_position_noise(df, std_x=0.1, std_y=0.1)
-        df = self.add_initial_param_noise(df, std_theta=0.5, std_v0=0.5)
-        # Optional:
-        # df = self.dropout_features(df, dropout_rate=0.005)
-        return df
+                for ti, xc, yc, xn, yn, xi, yi in zip(
+                    t_vals, x_clean, y_clean, x_noisy, y_noisy, x_sel, y_sel
+                ):
+                    rows.append(
+                        {
+                            "wurf_id": wid,
+                            "t": float(ti),
+                            "x_clean": float(xc),
+                            "y_clean": float(yc),
+                            "x_noisy": float(xn),
+                            "y_noisy": float(yn),
+                            "x": float(xi),
+                            "y": float(yi),
+                            "T": float(T),
+                            "label": int(label),
+                            "theta": float(theta),
+                            "v0": float(v0),
+                        }
+                    )
+
+                counts[desired] += 1
+                wid += 1
+
+        return pd.DataFrame(rows)
