@@ -95,10 +95,6 @@ class DataGen:
         max_resample=5000,
         force_exact_endpoint=True,
     ):
-        """
-        Balanced dataset: exactly n_per_class throws for each label {0,1,2}.
-        Returns same dataframe format as generate_dataset.
-        """
         base_theta = np.deg2rad(base_theta_deg)
         base_v0 = self.wurfgeschwindigkeit(base_theta)
 
